@@ -1,100 +1,159 @@
 import numpy as np
 
-from BaseDriver import LabberDriver
+# # from BaseDriver import LabberDriver
 
 
 class Driver(LabberDriver):
-    """This class implements a multi-qubit pulse generator."""
+    """Detect blips in single shot traces"""
 
     def performOpen(self, options={}):
         """Perform the operation of opening the instrument connection."""
-        self.sequence = self.getValue("Sequence Type")
-        self.sampling_rate = self.getValue("Sampling Rate")
-        self.n_pulses = int(self.getValue("Number of Pulses"))
-        self.init_pulses()
+        self.Blip = Blip()
+        self.Blip.__init__()
+        self.Blip.sampling_rate = self.getValue("Sampling Rate")
 
     def performSetValue(self, quant, value, sweepRate=0.0, options={}):
         """Perform the Set Value instrument operation."""
-        if quant.name == "Number of Samples":
-            self.init_pulses()
-
-        if quant.name == "Number of Pulses":
-            self.n_pulses = int(value)
-            self.init_pulses()
-
-        if quant.name == "Sampling Rate":
-            self.sampling_rate = value
-            self.init_pulses()
-
-        if "Amplitude" in quant.name:
-            index = int(quant.name.split()[1]) - 1
-            if index + 1 <= len(self.pulses):
-                value = self.pulses[index].set_amplitude(value)
-
-        if "Length" in quant.name:
-            index = int(quant.name.split()[1]) - 1
-            if index + 1 <= len(self.pulses):
-                value = self.pulses[index].set_length(value)
-
-        return value
+        if "Search Window 1" in quant.name:
+            self.Blip.searchwindow[0] = value
+        elif "Search Window 2" in quant.name:
+            self.Blip.searchwindow[1] = value
+        else:
+            name = quant.set_cmd
+            type(self.Blip).__dict__[name].__set__(self.Blip, value)
 
     def performGetValue(self, quant, options={}):
         """Perform the Get Value instrument operation."""
-        if quant.name == "Trace":
-            array = np.hstack([p.array[0] for p in self.pulses])
-            dt = 1 / self.sampling_rate
-            value = quant.getTraceDict(array, dt=dt)
-        else:
-            value = quant.getValue()
-        return value
-
-    def init_pulses(self):
-        self.pulses = []
-        for i in range(self.n_pulses):
-            pulse = Blip(sampling_rate=self.sampling_rate)
-            pulse.set_amplitude(self.getValue(f"Pulse {i+1} - Amplitude"))
-            pulse.set_length(self.getValue(f"Pulse {i+1} - Length"))
-            self.pulses.append(pulse)
-
+        name = quant.get_cmd
+        return getattr(Blip,name)
 
 class Blip:
-    def __init__(self, sampling_rate=1.8e9):
-        self._sampling_rate = sampling_rate
-        self.searchwindow = None
-        self.mode = None
-        self.threshold=[]
-        self.reflevel=[]
-
-    def set_amplitude(self, amplitude):
-        if abs(amplitude) > 1.0:
-            self._amplitude = amplitude / abs(amplitude)
-        else:
-            self._amplitude = amplitude
-        return self._amplitude
-
-    @property
-    def amplitude(self):
-        return self._amplitude
-
-    def set_length(self, length):
-        self._n_points = int(length * self._sampling_rate)
-        if self._n_points < 1:
-            self._n_points = 1
-        self._length = self._n_points / self._sampling_rate
-        return self._length
+    def __init__(self):
+        self.sampling_rate = 1.8e9
+        self.searchwindow = np.array([np.nan,np.nan])
+        self.refwindow = np.array([])
+        self.threshold = np.nan
+        self.reflevel = np.nan
+        self.trace = np.array([])
+        self.segmentlength = 1
+        self.probability = np.nan
+        self.I_avg = np.nan
+        self._count = np.nan
+        self._searchindex = np.array([])
 
     @property
-    def length(self):
-        return self._length
+    def searchwindow(self):
+        return self._searchwindow
+
+    @searchwindow.setter
+    def searchwindow(self, value):
+        if value is not None:
+            self._searchindex = value*self.sampling_rate
+            self._searchindex = self._searchindex.astype(int)
+            self._searchwindow = value
 
     @property
-    def array(self):
-        return (
-            self.amplitude * np.ones(self._n_points),
-            np.linspace(0, self.length, self._n_points),
-        )
+    def _searchindex(self):
+        return self.__searchindex
+
+    @_searchindex.setter
+    def _searchindex(self, value):
+        self.__searchindex = value
+
+    @property
+    def refwindow(self):
+        return self.refwindow
+
+    @refwindow.setter
+    def refwindow(self, value):
+        self._refwindow = value
+
+    @property
+    def _refindex(self):
+        self._refindex = self.refwindow*self.sampling_rate
+        return self._refindex
+
+    @property
+    def threshold(self):
+        return self._threshold
+
+    @threshold.setter
+    def threshold(self, value):
+        self._threshold = value
+
+    @property
+    def trace(self):
+        return self._trace
+
+    @trace.setter
+    def trace(self, value):
+        self._trace = value
+
+    @property
+    def segmentlength(self):
+        return self._segmentlength
+
+    @segmentlength.setter
+    def segmentlength(self, value):
+        self._segmentlength = value
+        if self.trace.size > 0:
+            trace = self.update()
+            self.trace = trace
+
+    @property
+    def reflevel(self):
+        return self._reflevel
+
+    @reflevel.setter
+    def reflevel(self, value):
+        self._reflevel = value
+
+    @property
+    def probability(self):
+        self.update()
+        return self._probability
+
+    @probability.setter
+    def probability(self, value):
+        self._probability = value
+
+    @property
+    def I_avg(self):
+        self.update()
+        return self._I_avg
+
+    @I_avg.setter
+    def I_avg(self, value):
+        self._I_avg = value
+
+    @property
+    def _count(self):
+        return self.__count
+
+    @_count.setter
+    def _count(self, value):
+        self.__count = value
+
+    def update(self):
+        print("Updated???")
+        trace = self.trace
+        L = self.segmentlength
+        trace = np.append(
+            trace, np.nan*np.zeros(int(np.ceil(trace.size/L)*L-trace.size)))
+        trace = trace.reshape(int(np.ceil(trace.size/L)), L)
+
+        if np.isnan(self.reflevel) == 0:
+            trace = trace - self.reflevel
+            # # Search for blip
+        if self.searchwindow.size > 1:
+            searchind = self._searchindex
+            self._count = np.sum(
+                np.any(trace[:, searchind[0]:searchind[1]] > self.threshold, axis=1))
+            self.probability = self._count/trace.shape[0]
+            self.I_avg = np.nanmean(trace[:, searchind[0]:searchind[1]])
+
+        return trace
 
 
 if __name__ == "__main__":
     pass
-
