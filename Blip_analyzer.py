@@ -1,6 +1,6 @@
 import numpy as np
 
-# # from BaseDriver import LabberDriver
+from BaseDriver import LabberDriver
 
 
 class Driver(LabberDriver):
@@ -8,24 +8,23 @@ class Driver(LabberDriver):
 
     def performOpen(self, options={}):
         """Perform the operation of opening the instrument connection."""
-        self.Blip = Blip()
-        self.Blip.__init__()
-        self.Blip.sampling_rate = self.getValue("Sampling Rate")
+        self.blip = Blip()
+        self.blip.sampling_rate = self.getValue("Sampling Rate")
 
     def performSetValue(self, quant, value, sweepRate=0.0, options={}):
         """Perform the Set Value instrument operation."""
         if "Search Window 1" in quant.name:
-            self.Blip.searchwindow[0] = value
+            self.blip.searchwindow[0] = value
         elif "Search Window 2" in quant.name:
-            self.Blip.searchwindow[1] = value
+            self.blip.searchwindow[1] = value
         else:
             name = quant.set_cmd
-            type(self.Blip).__dict__[name].__set__(self.Blip, value)
+            type(self.blip).__dict__[name].__set__(self.blip, value)
 
     def performGetValue(self, quant, options={}):
         """Perform the Get Value instrument operation."""
         name = quant.get_cmd
-        return getattr(Blip,name)
+        return getattr(self.blip,name)
 
 class Blip:
     def __init__(self):
@@ -145,7 +144,7 @@ class Blip:
         if np.isnan(self.reflevel) == 0:
             trace = trace - self.reflevel
             # # Search for blip
-        if self.searchwindow.size > 1:
+        if np.any(np.isnan(self._searchwindow)) == 0:
             searchind = self._searchindex
             self._count = np.sum(
                 np.any(trace[:, searchind[0]:searchind[1]] > self.threshold, axis=1))
