@@ -59,7 +59,7 @@ class Blip:
         self.probability = np.nan
         self.I_avg = np.nan
         self._count = np.nan
-        self.__searchindex = np.array([np.nan,np.nan])
+        self.__searchindex = np.array([np.nan,np.nan]) #????
 
     @property
     def sampling_rate(self):
