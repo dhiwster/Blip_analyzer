@@ -17,20 +17,41 @@ class Driver(LabberDriver):
             self.blip.searchwindow[0] = value
         elif "Search Window 2" in quant.name:
             self.blip.searchwindow[1] = value
+        elif "Trace" in quant.name:
+            if value is not None:
+               self.blip.trace = value["y"]
         else:
             name = quant.set_cmd
             type(self.blip).__dict__[name].__set__(self.blip, value)
 
     def performGetValue(self, quant, options={}):
         """Perform the Get Value instrument operation."""
-        name = quant.get_cmd
-        return getattr(self.blip,name)
+        if "Search Window 1" in quant.name:
+            return self.blip.searchwindow[0]
+        elif "Search Window 2" in quant.name:
+            return self.blip.searchwindow[1]
+        # elif "Trace" in quant.name:
+        #     return self.result_to_quant(quant, self.blip)
+        else:
+            self.log("The trace: !",level=30)
+            self.log(self.blip._trace,level=30)
+            name = quant.get_cmd
+            return getattr(self.blip,name)
+
+
+    def result_to_quant(self, quant, Blip):
+        """Gets the corresponding result data from the scope module."""
+        if Blip.trace.size > 0:
+            y = Blip.trace
+            return quant.getTraceDict(y)
+        else:
+            return np.array([])
 
 class Blip:
     def __init__(self):
         self.sampling_rate = 1.8e9
         self.searchwindow = np.array([np.nan,np.nan])
-        self.refwindow = np.array([])
+        self.refwindow = np.array([np.nan,np.nan])
         self.threshold = np.nan
         self.reflevel = np.nan
         self.trace = np.array([])
@@ -38,7 +59,15 @@ class Blip:
         self.probability = np.nan
         self.I_avg = np.nan
         self._count = np.nan
-        self._searchindex = np.array([])
+        self.__searchindex = np.array([np.nan,np.nan])
+
+    @property
+    def sampling_rate(self):
+        return self._sampling_rate
+
+    @sampling_rate.setter
+    def sampling_rate(self,value):
+        self._sampling_rate = value
 
     @property
     def searchwindow(self):
@@ -46,10 +75,9 @@ class Blip:
 
     @searchwindow.setter
     def searchwindow(self, value):
-        if value is not None:
-            self._searchindex = value*self.sampling_rate
-            self._searchindex = self._searchindex.astype(int)
-            self._searchwindow = value
+        self._searchwindow = value
+        self.__searchindex = self._searchwindow*self.sampling_rate
+        self.__searchindex = self._searchindex.astype(int)
 
     @property
     def _searchindex(self):
@@ -86,7 +114,11 @@ class Blip:
 
     @trace.setter
     def trace(self, value):
+        if isinstance(value, np.ndarray) == 0:
+            value = np.array(value)
+
         self._trace = value
+
 
     @property
     def segmentlength(self):
@@ -94,7 +126,7 @@ class Blip:
 
     @segmentlength.setter
     def segmentlength(self, value):
-        self._segmentlength = value
+        self._segmentlength = int(value)
         if self.trace.size > 0:
             trace = self.update()
             self.trace = trace
@@ -134,22 +166,25 @@ class Blip:
         self.__count = value
 
     def update(self):
-        print("Updated???")
-        trace = self.trace
-        L = self.segmentlength
-        trace = np.append(
-            trace, np.nan*np.zeros(int(np.ceil(trace.size/L)*L-trace.size)))
-        trace = trace.reshape(int(np.ceil(trace.size/L)), L)
+        trace = self._trace
 
-        if np.isnan(self.reflevel) == 0:
-            trace = trace - self.reflevel
-            # # Search for blip
-        if np.any(np.isnan(self._searchwindow)) == 0:
-            searchind = self._searchindex
-            self._count = np.sum(
-                np.any(trace[:, searchind[0]:searchind[1]] > self.threshold, axis=1))
-            self.probability = self._count/trace.shape[0]
-            self.I_avg = np.nanmean(trace[:, searchind[0]:searchind[1]])
+        if trace.size>0:
+            L = self._segmentlength
+            trace = np.append(
+                trace, np.nan*np.zeros(int(np.ceil(trace.size/L)*L-trace.size)))
+            trace = trace.reshape(int(np.ceil(trace.size/L)), L)
+
+            if np.isnan(self.reflevel) == 0:
+                trace = trace - self._reflevel
+                # # Search for blip
+            if np.any(np.isnan(self._searchwindow)) == 0:
+                searchind = self.__searchindex
+                print(searchind[0])
+                print(searchind[1])
+                self.__count = np.sum(
+                    np.any(trace[:, searchind[0]:searchind[1]] > self._threshold, axis=1))
+                self._probability = self._count/trace.shape[0]
+                self._I_avg = np.nanmean(trace[:, searchind[0]:searchind[1]])
 
         return trace
 
