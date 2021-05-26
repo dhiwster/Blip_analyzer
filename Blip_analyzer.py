@@ -33,8 +33,6 @@ class Driver(LabberDriver):
             return self.blip.searchwindow[0]
         elif "Search Window 2" in quant.name:
             return self.blip.searchwindow[1]
-        # elif "Trace" in quant.name:
-        #     return self.result_to_quant(quant, self.blip)
         else:
             self.log("The trace: !",level=30)
             self.log(self.blip._trace,level=30)
@@ -62,7 +60,7 @@ class Blip:
         self.probability = np.nan
         self.I_avg = np.nan
         self._count = np.nan
-        self._searchindex = np.array([np.nan,np.nan]) #????
+        self._searchindex = np.array([np.nan,np.nan])
 
     @property
     def sampling_rate(self):
@@ -152,14 +150,6 @@ class Blip:
     def I_avg(self, value):
         self._I_avg = value
 
-    @property
-    def _count(self):
-        return self.__count
-
-    @_count.setter
-    def _count(self, value):
-        self.__count = value
-
     def update(self):
         trace = self._trace
 
@@ -174,15 +164,12 @@ class Blip:
                 # # Search for blip
             if np.any(np.isnan(self._searchwindow)) == 0:
                 searchind = self._searchindex
-                print(searchind[0])
-                print(searchind[1])
-                self.__count = np.sum(
+                self._count = np.sum(
                     np.any(trace[:, searchind[0]:searchind[1]] > self._threshold, axis=1))
                 self._probability = self._count/trace.shape[0]
                 self._I_avg = np.nanmean(trace[:, searchind[0]:searchind[1]])
 
         return trace
-
 
 if __name__ == "__main__":
     pass
