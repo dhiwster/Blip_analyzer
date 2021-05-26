@@ -1,5 +1,4 @@
 import numpy as np
-
 from BaseDriver import LabberDriver
 
 
@@ -14,9 +13,13 @@ class Driver(LabberDriver):
     def performSetValue(self, quant, value, sweepRate=0.0, options={}):
         """Perform the Set Value instrument operation."""
         if "Search Window 1" in quant.name:
-            self.blip.searchwindow[0] = value
+            window = self.blip.searchwindow
+            window[0] =value
+            self.blip.searchwindow = window
         elif "Search Window 2" in quant.name:
-            self.blip.searchwindow[1] = value
+            window = self.blip.searchwindow
+            window[1] =value
+            self.blip.searchwindow = window
         elif "Trace" in quant.name:
             if value is not None:
                self.blip.trace = value["y"]
@@ -59,7 +62,7 @@ class Blip:
         self.probability = np.nan
         self.I_avg = np.nan
         self._count = np.nan
-        self.__searchindex = np.array([np.nan,np.nan]) #????
+        self._searchindex = np.array([np.nan,np.nan]) #????
 
     @property
     def sampling_rate(self):
@@ -76,16 +79,8 @@ class Blip:
     @searchwindow.setter
     def searchwindow(self, value):
         self._searchwindow = value
-        self.__searchindex = self._searchwindow*self.sampling_rate
-        self.__searchindex = self._searchindex.astype(int)
-
-    @property
-    def _searchindex(self):
-        return self.__searchindex
-
-    @_searchindex.setter
-    def _searchindex(self, value):
-        self.__searchindex = value
+        self._searchindex = self._searchwindow*self.sampling_rate
+        self._searchindex = self._searchindex.astype(int)
 
     @property
     def refwindow(self):
@@ -178,7 +173,7 @@ class Blip:
                 trace = trace - self._reflevel
                 # # Search for blip
             if np.any(np.isnan(self._searchwindow)) == 0:
-                searchind = self.__searchindex
+                searchind = self._searchindex
                 print(searchind[0])
                 print(searchind[1])
                 self.__count = np.sum(
