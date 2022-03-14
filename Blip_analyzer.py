@@ -59,8 +59,10 @@ class Blip:
         self.segmentlength = 1
         self.probability = np.nan
         self.I_avg = np.nan
+        self._t=np.array([]) #Not sure whether this should be a protected property
         self._count = np.nan
         self._searchindex = np.array([np.nan,np.nan])
+        self._trace_reshaped = np.array([])
 
     @property
     def sampling_rate(self):
@@ -69,6 +71,7 @@ class Blip:
     @sampling_rate.setter
     def sampling_rate(self,value):
         self._sampling_rate = value
+        # Will be nice to set the time axis array as well
 
     @property
     def searchwindow(self):
@@ -112,7 +115,6 @@ class Blip:
 
         self._trace = value
 
-
     @property
     def segmentlength(self):
         return self._segmentlength
@@ -121,11 +123,11 @@ class Blip:
     def segmentlength(self, value):
         self._segmentlength = int(value)
         if self.trace.size > 0:
-            trace = self.update()
-            self.trace = trace
+            self.update()
 
     @property
     def reflevel(self):
+        # Reference level for every trace to discard jumps etc
         return self._reflevel
 
     @reflevel.setter
@@ -150,14 +152,20 @@ class Blip:
     def I_avg(self, value):
         self._I_avg = value
 
+    @property
+    def mean_timetrace(self):
+        self.update()
+        return self._mean_timetrace
+
     def update(self):
         trace = self._trace
 
         if trace.size>0:
             L = self._segmentlength
+            number_of_records=int(np.ceil(trace.size/L))
             trace = np.append(
-                trace, np.nan*np.zeros(int(np.ceil(trace.size/L)*L-trace.size)))
-            trace = trace.reshape(int(np.ceil(trace.size/L)), L)
+                trace, np.nan*np.zeros(number_of_records*L-trace.size))
+            trace = trace.reshape(number_of_records, L)
 
             if np.isnan(self.reflevel) == 0:
                 trace = trace - self._reflevel
@@ -169,7 +177,10 @@ class Blip:
                 self._probability = self._count/trace.shape[0]
                 self._I_avg = np.nanmean(trace[:, searchind[0]:searchind[1]])
 
-        return trace
+
+            self._mean_timetrace = np.nanmean(trace,axis=1)
+            self._trace_reshaped = trace
+            self._t = np.arange(L)/self.sampling_rate
 
 if __name__ == "__main__":
     pass
