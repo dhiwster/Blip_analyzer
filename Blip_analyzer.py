@@ -63,6 +63,7 @@ class Blip:
         self._count = np.nan
         self._searchindex = np.array([np.nan,np.nan])
         self._trace_reshaped = np.array([])
+        self._mean_timetrace = np.array([])
 
     @property
     def sampling_rate(self):
@@ -178,7 +179,7 @@ class Blip:
                 self._I_avg = np.nanmean(trace[:, searchind[0]:searchind[1]])
 
 
-            self._mean_timetrace = np.nanmean(trace,axis=1)
+            self._mean_timetrace = np.nanmean(trace,axis=0)
             self._trace_reshaped = trace
             self._t = np.arange(L)/self.sampling_rate
 
